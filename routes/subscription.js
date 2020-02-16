@@ -107,19 +107,11 @@ function subscriptionHandler(req, res, next) {
         "amount": cost
        })
 
-      request({
-           url: "http://127.0.0.1:3000/payment",
-           method: 'POST',
-           headers: {
-               'content-type': 'application/json'
-           },
-           body: postData
-        }, function (err, res, body){
-               if(err)throw err;
-               console.log(JSON.parse(body));
-        });
-     
+       paymentRequest(postData, function(valid){
+           res.send("Success!");
+       });
 
+      
     //    res.send({     
     //     'Plan_id': New_plan_id,
     //     'start date': startdate,
@@ -175,6 +167,20 @@ function getCurrentPlan(req, res, next) {
     
 }
 
+function paymentRequest(ob, cb) {
+    request({
+        url: "http://127.0.0.1:3000/payment",
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json'
+        },
+        body: ob
+     }, function (err, res, body){
+            if(err)throw err;
+            console.log(JSON.parse(body));
+     });
+  cb();
+}
 
 module.exports = {
     subscriptionHandler,
