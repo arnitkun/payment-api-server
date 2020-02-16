@@ -1,5 +1,8 @@
 const express = require('express');
 const mysql = require('mysql');
+const moment = require('moment');
+const request = require('request');
+// const http = require('http');
 
 const CONFIG = {
     host: 'localhost',
@@ -8,7 +11,7 @@ const CONFIG = {
     database : 'cus'
 }
 
-const plans = {
+var plans = {
     plan_ids: ['FREE', 'TRIAL', 'LITE_1M', 'PRO_1M', 'LITE_6M', 'PRO_6M'],
     validity: [Infinity, 7, 30, 30, 180, 180],
     cost: [0.0, 0.0, 100.0, 200.0, 500.0, 900.0]
@@ -17,23 +20,65 @@ const plans = {
 
 var connection = mysql.createConnection(CONFIG);
 
-
-function convertDate(str) {
-    let [year, month, day] = str.split('-');
-    let d = new Date(year, month-1, day);
-
-    date = [
-        d.getFullYear(),
-        ('0' + (d.getMonth() + 1)).slice(-2),
-         ('0' + d.getDate()).slice(-2)
-        ].join('-');
-    
-    return date;
+function makeTransaction(uname, payment_type="DEBIT", amt) {
+    let transactionObject = {};
+    transactionObject.user_name = uname;
+    transactionObject.payment_type = payment_type;
+    transactionObject.amount= amt
+    return transactionObject
 }
 
-function subscriptionHandler(req, res, next) {
-    const {user_name, contact_number, New_plan_id, startdate} = req.body;
+// var transactionObject = {
+//     "user_name": <string>,
+//     /* "payment_type": </string><one of "DEBIT"|"CREDIT">, */
+//     "payment_type"
+//     "amount": <number>
+//   }
 
+
+function getValidity(pid, start) {
+    pid = pid.toUpperCase();
+  
+  if(plans.plan_ids.includes(pid) && moment(start, 'YYYY-MM-DD').isValid()){
+    
+    for(let i = 0; i < plans.plan_ids.length; i++){
+        {
+          if(plans.plan_ids[i] === pid){
+            let validity = plans.validity[i];
+            return validity;
+          }
+        }
+      }
+    } else {
+      console.log("Incorrect format for plan id or start date.");
+    }    
+}
+
+function getCost(pid) {
+    pid = pid.toUpperCase();
+    
+    if(plans.plan_ids.includes(pid)) {
+      for(let i = 0; i < plans.plan_ids.length; i++){
+          
+            if(plans.plan_ids[i] === pid){
+              let price = plans.cost[i];
+              return price;
+            }
+          }
+  } else {
+    console.log("Invalid plan!");
+  } 
+}
+
+function getEndDate(start, number_of_days) {
+    return moment(start).add(number_of_days, "days").format('YYYY-MM-DD');
+}
+
+
+function subscriptionHandler(req, res, next) {
+    var {user_name, contact_number, New_plan_id, startdate} = req.body;
+    New_plan_id = New_plan_id.toUpperCase();
+    
     if (!user_name || !New_plan_id || !contact_number || !startdate) {
         res.status(400).send({
           status: 'FAILURE',
@@ -42,7 +87,7 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
-    if (typeof user_name !== 'string' || typeof New_plan_id !== 'string' || typeof contact_number !== 'string' || typeof startdate !== 'string') {
+    if (typeof user_name !== 'string' || typeof New_plan_id !== 'string' || typeof contact_number !== 'string') {
         res.status(400).send({
           status: 'FAILURE',
           error:
@@ -51,25 +96,46 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
-   
-    date = convertDate(startdate);
+    if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
+       let valid = getValidity(New_plan_id, startdate);
+       let cost = getCost(New_plan_id);
+       let endDate = getEndDate(startdate, valid);
+       
+       var postData = JSON.stringify({
+        "user_name": user_name,
+        "payment_type": "DEBIT",
+        "amount": cost
+       })
+
+      request({
+           url: "http://127.0.0.1:3000/payment",
+           method: 'POST',
+           headers: {
+               'content-type': 'application/json'
+           },
+           body: postData
+        }, function (err, res, body){
+               if(err)throw err;
+               console.log(JSON.parse(body));
+        });
+     
+
+    //    res.send({     
+    //     'Plan_id': New_plan_id,
+    //     'start date': startdate,
+    //     "cost": cost,
+    //     "end Date": endDate
+    //     });
+
+    } else {
+        console.log("Incorrect Date or plan. Please check.");
+    }
+
     
-
-
-    res.send({
-        
-        
-        'Plan_id': New_plan_id,
-        'start date': date
-        
-
-        // days_left: days_left,
-
-    });
 }
 
 function getCurrentPlan(req, res, next) {
-    const {user_name} = req.body;
+    var {user_name} = req.body;
 
     if (!user_name) {
         res.status(400).send({
