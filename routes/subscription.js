@@ -79,47 +79,61 @@ function subscriptionHandler(req, res, next) {
     }
 
 
-    getFromCustomers(user_name, contact_number);
-
-    if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
-       let valid = getValidity(New_plan_id, startdate);
-       let cost = getCost(New_plan_id);
-       let endDate = getEndDate(startdate, valid);
-       startdate = moment(startdate).format('YYYY-MM-DD');
-    //    console.log(startdate);
-       
-       var postData = JSON.stringify({
-        "user_name": user_name,
-        "payment_type": "DEBIT",
-        "amount": cost
-       })
-
-       paymentRequest(postData, function(paymentApiResponse){
-           let paymentResponse = JSON.parse(paymentApiResponse)
-           res.send(paymentResponse.status);
-        //    console.log(startdate);
-         console.log(paymentResponse)
-           if(paymentResponse.status == "SUCCESS"){
-            writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);
-            console.log("successful payment.")
-            // console.log("checking for duplicates");
-                getFromCustomers(user_name, contact_number)
-                .then(function(results){
-                    console.log(results);
-                }).catch(function(err){
-                    console.log(err)
-                })
-                
-                // console.log(customerData);
-           }
-       });
-       }
-       
-       else {
-        console.log("Incorrect Date or plan. Please check.");
-    }
+    // getFromCustomers(user_name, contact_number);
 
     
+    let data = getFromCustomers(user_name, contact_number)
+                .then(function(results){
+                    return results;
+                }).catch(function(err){
+                    return err;
+                })   
+    // data.then((res) => console.log(Object.keys(res[0])));
+    let duplicates = false;
+    data.then(function(result) {
+            for(let i = 0; i < result.length; i++){
+            if(result[i].contact_number == contact_number  && moment(result[i].start_date).format('YYYY-MM-DD') == startdate && result[i].plan == New_plan_id){
+                duplicates = true;
+            }
+        }
+
+        if(duplicates == true){
+            console.log("You already have that plan!");
+            res.send("You already have that plan!");
+        } else {
+            if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
+                let valid = getValidity(New_plan_id, startdate);
+                let cost = getCost(New_plan_id);
+                let endDate = getEndDate(startdate, valid);
+                startdate = moment(startdate).format('YYYY-MM-DD');
+             //    console.log(startdate);
+                
+                var postData = JSON.stringify({
+                 "user_name": user_name,
+                 "payment_type": "DEBIT",
+                 "amount": cost
+                })
+            
+                paymentRequest(postData, function(paymentApiResponse){
+                    let paymentResponse = JSON.parse(paymentApiResponse)
+                    res.send(paymentResponse.status);
+                 //    console.log(startdate);
+                //   console.log(paymentResponse)
+                    if(paymentResponse.status == "SUCCESS"){
+                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);
+                     console.log("successful payment.")
+                     // console.log("checking for duplicates");
+                    }
+                });
+                }
+                
+                else {
+                 console.log("Incorrect Date or plan. Please check.");
+             }
+        }
+    })
+
+
 }
 
 function getCurrentPlan(req, res, next) {
@@ -180,25 +194,11 @@ function paymentRequest(ob, cb) {
 }
 
 function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
-    
-    //check if the row is not unique
-
-
-    //should check for overlapping plans here
-
-    
-    //should check if current user has exhausted his trial period
-
-    // connection.query('select start_date from customers where contact_number = ?',[contact_number], function(err, res, fields){
-    //     console.log(fields);
-    // })
-
-    //checks if there is same plan for same user at the same start date, if yes it just logs the duplicate entry
 
     connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
                     start_date, end_date) values(?, ?, ?, \
                     ?, ?)`,[uname, contact_number, plan, startdate, endDate], function (err, res, fields) {
-        if(err) console.log(err.sqlMessage);
+        if(err) console.log("Duplicate row found while writing to database." + err.sqlMessage);
         else
         {console.log("Written to db successfully!");}
     });
@@ -218,20 +218,25 @@ getFromCustomers = function(uname, contact_number) {
     })
 }
 
-// function getFromCustomers(uname, contact_number) {
-//     console.log("checking for duplicates in getFromCustomers");
-//     connection.query('select user_name, contact_number, plan, start_date, end_date from customers where \
-//                      user_name = ? AND contact_number = ?;',[uname, contact_number], function(err, rows, fields) {
-//                             if(err) {
-//                                 console.log(err);
-//                                 } else{
-//                                     // console.log("rows: " + Object.keys(rows));
-//                                     // console.log("fields: " + Object.keys( fields));
-//                                     return rows;
-//                             }
-//                     });
-    
-// }
+
+function checkForDuplicates(uname, contact_number, plan, startdate) {
+    let data = getFromCustomers(uname, contact_number)
+                .then(function(results){
+                    return results;
+                }).catch(function(err){
+                    return err;
+                })
+
+    data.then(function(result) {
+        for(let i = 0; i < result.length; i++){
+            if(result[i].contact_number == contact_number && result[i].startdate==startdate && result[i].plan == plan){
+                return true;
+            }
+        }
+        return false;
+
+    })
+}
 
 
 module.exports = {
