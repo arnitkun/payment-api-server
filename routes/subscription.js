@@ -78,9 +78,15 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
+    if (startdate < moment().format('YYYY-MM-DD')){
+        res.status(400).send({
+            status: 'FAILURE',
+            error:'You can not choose a start date in the past. Why spend for no reason?'
+        });
+        return;
+    }
 
     // getFromCustomers(user_name, contact_number);
-
     
     let data = getFromCustomers(user_name, contact_number)
                 .then(function(results){
@@ -108,10 +114,14 @@ function subscriptionHandler(req, res, next) {
             res.send("You have exhausted your trial period.")  
         } else {
             if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
-                console.log(New_plan_id);
+
+                //check for upgrade/downgrade
+                
+
+                // console.log(New_plan_id);
                 let valid = getValidity(New_plan_id, startdate);
                 let cost = getCost(New_plan_id);
-                console.log(typeof cost);
+                // console.log(typeof cost);
                 let endDate = getEndDate(startdate, valid);
                 startdate = moment(startdate).format('YYYY-MM-DD');
              //    console.log(startdate);
