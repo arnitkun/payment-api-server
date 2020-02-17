@@ -19,10 +19,10 @@ var plans = {
 
 var connection = mysql.createConnection(CONFIG);
 
-function getValidity(pid, start) {
+function getValidity(pid) {
     pid = pid.toUpperCase();
   
-  if(plans.plan_ids.includes(pid) && moment(start, 'YYYY-MM-DD').isValid()){
+  if(plans.plan_ids.includes(pid)){
     
     for(let i = 0; i < plans.plan_ids.length; i++){
         {
@@ -53,6 +53,36 @@ function getCost(pid) {
   } 
 }
 
+
+function setPostData(uname, status, bal, newplan) {
+    let newPlanCost = getCost(newplan);
+    let ob ={};
+    ob.user_name = uname;
+    switch(status){
+        case "upgrade":
+            totalCost = newPlanCost - bal;
+            ob.payment_type = "DEBIT";
+            ob.amount = totalCost;
+            break;
+        case "downgrade":
+            totalCost = bal - newPlanCost;
+            if(totalCost > 0){
+                ob.payment_type = "CREDIT"
+                ob.amount = totalCost
+            } else {
+                ob.payment_type = "DEBIT"
+                ob.amount = Math.abs(totalcost)
+            }
+            break;
+        case "same":
+            totalCost = newPlanCost - bal;
+            ob.payment_type = "DEBIT";
+            ob.amount = totalCost;
+            break;
+    }
+    return ob;
+}
+
 function getEndDate(start, number_of_days) {
     return moment(start).add(number_of_days, "days").format('YYYY-MM-DD');
 }
@@ -78,22 +108,22 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
-    if (startdate < moment().format('YYYY-MM-DD')){
-        res.status(400).send({
-            status: 'FAILURE',
-            error:'You can not choose a start date in the past. Why spend for no reason?'
-        });
-        return;
-    }
+    // if (startdate < moment().format('YYYY-MM-DD')){
+    //     res.status(400).send({
+    //         status: 'FAILURE',
+    //         error:'You can not choose a start date in the past. Why spend for no reason?'
+    //     });
+    //     return;
+    // }
 
-    // getFromCustomers(user_name, contact_number);
+    
     
     let data = getFromCustomers(user_name, contact_number)
                 .then(function(results){
                     return results;
                 }).catch(function(err){
                     return err;
-                })   
+            })   
     // data.then((res) => console.log(Object.keys(res[0])));
     let duplicates = false;
     let trial = false;
@@ -115,15 +145,38 @@ function subscriptionHandler(req, res, next) {
         } else {
             if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
 
-                //check for upgrade/downgrade
-                
 
-                // console.log(New_plan_id);
-                let valid = getValidity(New_plan_id, startdate);
-                let cost = getCost(New_plan_id);
-                // console.log(typeof cost);
-                let endDate = getEndDate(startdate, valid);
-                startdate = moment(startdate).format('YYYY-MM-DD');
+                 let valid = getValidity(New_plan_id);
+                 let cost = getCost(New_plan_id);
+                
+                 let endDate = getEndDate(startdate, valid);
+                //  startdate = moment(startdate).format('YYYY-MM-DD');
+                startdate = formattedDate(startdate);
+                console.log(endDate);
+                
+                for(let i = 0; i < result.length; i++){
+                    let startDateDb = formattedDate(result[i].start_date);
+                    let currentPlan = result[i].plan;
+                    if( startDateDb < startdate && formattedDate(result[i].end_date) > startdate){
+                        //calculate amount by finding difference in days.
+                        
+                        console.log("plan overlap found!");
+                        console.log("StartDate on new plan :" + startdate);
+                        console.log("startDate on plan in db :" + startDateDb);
+                        let diff = balanceLeft(startdate, startDateDb, currentPlan);
+                        console.log("The diff is " + diff);
+                        //remove the older entry with the same plan here for the user
+                        let status = findDebitOrCredit(currentPlan, New_plan_id);
+                        paymentObject = setPostData(user_name, status, diff, New_plan_id);
+
+                        console.log(paymentObject)
+
+                    }
+                }
+
+
+
+               
              //    console.log(startdate);
                 
                 var postData = JSON.stringify({
@@ -140,7 +193,6 @@ function subscriptionHandler(req, res, next) {
                     if(paymentResponse.status == "SUCCESS"){
                      writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);
                      console.log("successful payment.")
-                     // console.log("checking for duplicates");
                     }
                 });
                 }
@@ -152,6 +204,36 @@ function subscriptionHandler(req, res, next) {
     })
 
 
+}
+
+function findDebitOrCredit(pid_past, pid_current){
+    let past = plans.plan_ids.indexOf(pid_past);
+    let current = plans.plan_ids.indexOf(pid_current); 
+
+    if(past > current){
+        return "downgrade";
+    } else if(past < current){
+        return "upgrade";
+    } else {
+        return "same";
+    }
+
+}
+
+function balanceLeft(start, end, plan) {
+    let s = moment(start);
+    let e = moment(end);
+    let days = s.diff(e, 'days');
+    // return s.diff(e, 'days');
+    let amount = getCost(plan);
+    let validity = getValidity(plan);
+    return (amount - ( days * ( amount / validity)));
+
+}
+
+
+function formattedDate(date){
+    return moment(date).format("YYYY-MM-DD");
 }
 
 function getCurrentPlan(req, res, next) {
