@@ -1,8 +1,7 @@
-const express = require('express');
+
 const mysql = require('mysql');
 const moment = require('moment');
 const request = require('request');
-// const http = require('http');
 
 const CONFIG = {
     host: 'localhost',
@@ -19,22 +18,6 @@ var plans = {
 
 
 var connection = mysql.createConnection(CONFIG);
-
-function makeTransaction(uname, payment_type="DEBIT", amt) {
-    let transactionObject = {};
-    transactionObject.user_name = uname;
-    transactionObject.payment_type = payment_type;
-    transactionObject.amount= amt
-    return transactionObject
-}
-
-// var transactionObject = {
-//     "user_name": <string>,
-//     /* "payment_type": </string><one of "DEBIT"|"CREDIT">, */
-//     "payment_type"
-//     "amount": <number>
-//   }
-
 
 function getValidity(pid, start) {
     pid = pid.toUpperCase();
@@ -74,7 +57,6 @@ function getEndDate(start, number_of_days) {
     return moment(start).add(number_of_days, "days").format('YYYY-MM-DD');
 }
 
-
 function subscriptionHandler(req, res, next) {
     var {user_name, contact_number, New_plan_id, startdate} = req.body;
     New_plan_id = New_plan_id.toUpperCase();
@@ -96,10 +78,15 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
+
+    getFromCustomers(user_name, contact_number);
+
     if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
        let valid = getValidity(New_plan_id, startdate);
        let cost = getCost(New_plan_id);
        let endDate = getEndDate(startdate, valid);
+       startdate = moment(startdate).format('YYYY-MM-DD');
+    //    console.log(startdate);
        
        var postData = JSON.stringify({
         "user_name": user_name,
@@ -107,19 +94,28 @@ function subscriptionHandler(req, res, next) {
         "amount": cost
        })
 
-       paymentRequest(postData, function(valid){
-           res.send("Success!");
+       paymentRequest(postData, function(paymentApiResponse){
+           let paymentResponse = JSON.parse(paymentApiResponse)
+           res.send(paymentResponse.status);
+        //    console.log(startdate);
+         console.log(paymentResponse)
+           if(paymentResponse.status == "SUCCESS"){
+            writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);
+            console.log("successful payment.")
+            // console.log("checking for duplicates");
+                getFromCustomers(user_name, contact_number)
+                .then(function(results){
+                    console.log(results);
+                }).catch(function(err){
+                    console.log(err)
+                })
+                
+                // console.log(customerData);
+           }
        });
-
-      
-    //    res.send({     
-    //     'Plan_id': New_plan_id,
-    //     'start date': startdate,
-    //     "cost": cost,
-    //     "end Date": endDate
-    //     });
-
-    } else {
+       }
+       
+       else {
         console.log("Incorrect Date or plan. Please check.");
     }
 
@@ -176,11 +172,67 @@ function paymentRequest(ob, cb) {
         },
         body: ob
      }, function (err, res, body){
-            if(err)throw err;
-            console.log(JSON.parse(body));
+            if(err) cb(err);
+            cb(body);
+            // console.log(JSON.parse(body));
      });
-  cb();
+//   cb();
 }
+
+function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
+    
+    //check if the row is not unique
+
+
+    //should check for overlapping plans here
+
+    
+    //should check if current user has exhausted his trial period
+
+    // connection.query('select start_date from customers where contact_number = ?',[contact_number], function(err, res, fields){
+    //     console.log(fields);
+    // })
+
+    //checks if there is same plan for same user at the same start date, if yes it just logs the duplicate entry
+
+    connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
+                    start_date, end_date) values(?, ?, ?, \
+                    ?, ?)`,[uname, contact_number, plan, startdate, endDate], function (err, res, fields) {
+        if(err) console.log(err.sqlMessage);
+        else
+        {console.log("Written to db successfully!");}
+    });
+}
+
+
+getFromCustomers = function(uname, contact_number) {
+    return new Promise( function(resolve, reject) {
+        connection.query('select user_name, contact_number, plan, start_date, end_date from customers where \
+            user_name = ? AND contact_number = ?;',[uname, contact_number], function(err, rows) {
+                if(rows === undefined){
+                    reject(new Error("Error: undefined rows."));
+                } else {
+                    resolve(rows);
+                }
+            })
+    })
+}
+
+// function getFromCustomers(uname, contact_number) {
+//     console.log("checking for duplicates in getFromCustomers");
+//     connection.query('select user_name, contact_number, plan, start_date, end_date from customers where \
+//                      user_name = ? AND contact_number = ?;',[uname, contact_number], function(err, rows, fields) {
+//                             if(err) {
+//                                 console.log(err);
+//                                 } else{
+//                                     // console.log("rows: " + Object.keys(rows));
+//                                     // console.log("fields: " + Object.keys( fields));
+//                                     return rows;
+//                             }
+//                     });
+    
+// }
+
 
 module.exports = {
     subscriptionHandler,
