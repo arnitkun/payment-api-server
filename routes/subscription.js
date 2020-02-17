@@ -71,7 +71,7 @@ function setPostData(uname, status, bal, newplan) {
                 ob.amount = totalCost
             } else {
                 ob.payment_type = "DEBIT"
-                ob.amount = Math.abs(totalcost)
+                ob.amount = Math.abs(totalCost)
             }
             break;
         case "same":
@@ -145,7 +145,7 @@ function subscriptionHandler(req, res, next) {
         } else {
             if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
 
-
+                 let postData = {}; 
                  let valid = getValidity(New_plan_id);
                  let cost = getCost(New_plan_id);
                 
@@ -168,26 +168,18 @@ function subscriptionHandler(req, res, next) {
                         //remove the older entry with the same plan here for the user
                         let status = findDebitOrCredit(currentPlan, New_plan_id);
                         paymentObject = setPostData(user_name, status, diff, New_plan_id);
-
-                        console.log(paymentObject)
+                        postData = JSON.parse(JSON.stringify(paymentObject));
+                        postData = JSON.stringify(postData)
+                        // console.log(paymentObject)
 
                     }
                 }
-
-
-
-               
-             //    console.log(startdate);
                 
-                var postData = JSON.stringify({
-                 "user_name": user_name,
-                 "payment_type": "DEBIT",
-                 "amount": cost
-                })
+                console.log(postData);
                 
                 paymentRequest(postData, function(paymentApiResponse){
                     let paymentResponse = JSON.parse(paymentApiResponse)
-                    res.send(paymentResponse.status);
+                    res.send(paymentResponse);
                  //    console.log(startdate);
                 //   console.log(paymentResponse)
                     if(paymentResponse.status == "SUCCESS"){
