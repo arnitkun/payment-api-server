@@ -12,7 +12,7 @@ const CONFIG = {
 
 var plans = {
     plan_ids: ['FREE', 'TRIAL', 'LITE_1M', 'PRO_1M', 'LITE_6M', 'PRO_6M'],
-    validity: [Infinity, 7, 30, 30, 180, 180],
+    validity: [36500, 7, 30, 30, 180, 180],
     cost: [0.0, 0.0, 100.0, 200.0, 500.0, 900.0]
 }
 
@@ -90,20 +90,28 @@ function subscriptionHandler(req, res, next) {
                 })   
     // data.then((res) => console.log(Object.keys(res[0])));
     let duplicates = false;
+    let trial = false;
     data.then(function(result) {
             for(let i = 0; i < result.length; i++){
-            if(result[i].contact_number == contact_number  && moment(result[i].start_date).format('YYYY-MM-DD') == startdate && result[i].plan == New_plan_id){
+            if(result[i].contact_number == contact_number && moment(result[i].start_date).format('YYYY-MM-DD') == startdate && result[i].plan == New_plan_id){
                 duplicates = true;
+            }
+            if(result[i].plan == "TRIAL"){
+                trial = true;
             }
         }
 
         if(duplicates == true){
             console.log("You already have that plan!");
             res.send("You already have that plan!");
+        } else if(trial == true && New_plan_id == "TRIAL"){
+            res.send("You have exhausted your trial period.")  
         } else {
             if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
+                console.log(New_plan_id);
                 let valid = getValidity(New_plan_id, startdate);
                 let cost = getCost(New_plan_id);
+                console.log(typeof cost);
                 let endDate = getEndDate(startdate, valid);
                 startdate = moment(startdate).format('YYYY-MM-DD');
              //    console.log(startdate);
@@ -113,7 +121,7 @@ function subscriptionHandler(req, res, next) {
                  "payment_type": "DEBIT",
                  "amount": cost
                 })
-            
+                
                 paymentRequest(postData, function(paymentApiResponse){
                     let paymentResponse = JSON.parse(paymentApiResponse)
                     res.send(paymentResponse.status);
