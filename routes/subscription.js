@@ -190,9 +190,9 @@ function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
 }
 
 
-function removeCustomerPlan(...args){
+function removeCustomerPlan(uname, contact, plan){
     return new Promise(function(resolve, reject) {
-        connection.query( query,[], function(err, res, fields) {
+        connection.query(`DELETE FROM CUSTOMERS WHERE user_name=? AND contact_number=? AND plan=?`,[uname,contact,plan], function(err, res, fields) {
             if(err) reject(err.sqlMessage);
             else{
                 resolve(true);
@@ -262,13 +262,7 @@ function subscriptionHandler(req, res, next) {
         return;
     }
 
-    // if (startdate < moment().format('YYYY-MM-DD')){
-    //     res.status(400).send({
-    //         status: 'FAILURE',
-    //         error:'You can not choose a start date in the past. Why spend for no reason?'
-    //     });
-    //     return;
-    // }
+   
 
     
     //check for entries in the db for a partcular user only
@@ -281,6 +275,9 @@ function subscriptionHandler(req, res, next) {
 
 
         data.then(function(result) {
+
+            
+
             if(result.length === 0){
                 // console.log(startdate);
                 let valid = getValidity(New_plan_id);
@@ -302,21 +299,28 @@ function subscriptionHandler(req, res, next) {
                 console.log(result);
                 for(let i = 0; i < result.length; i++){
                     //check for duplicates
-                if(result[i].contact_number == contact_number && moment(result[i].start_date).format('YYYY-MM-DD') == startdate &&  result[i].plan == New_plan_id){
+                    if (startdate < moment(result[0].start_date).format('YYYY-MM-DD')){
+                        res.status(400).send({
+                            status: 'FAILURE',
+                            error:'You can not choose a start date in the past. Why spend for no reason?'
+                        });
+                        return;
+                    }
+                if(result[0].contact_number == contact_number && moment(result[0].start_date).format('YYYY-MM-DD') == startdate &&  result[0].plan == New_plan_id){
                         duplicates = true;
                         console.log("duplicate plan!")
                         res.send("You already have that plan!");
                 } else
-                if(formattedDate(result[i].start_date) <= startdate && formattedDate(result[i].end_date) > startdate){
+                if(formattedDate(result[0].start_date) <= startdate && formattedDate(result[0].end_date) > startdate){
                         //its either an upgrade or a downgrade; a partial overlap
                         //calculate if the balance and make appropriate debit/credit payment.
-                        console.log("upgrading/down from : " + result[i].plan);
-                        let changeType = planChangeType(result[i].plan, New_plan_id);
+                        console.log("upgrading/down from : " + result[0].plan);
+                        let changeType = planChangeType(result[0].plan, New_plan_id);
                         // console.log(changeType)
                         // // console.log(result[i].end_date)
                         // console.log(formattedDate(result[i].start_date))
                         // console.log(formattedDate(result[i].end_date))
-                        let bal = balanceLeft(startdate,formattedDate(result[i].start_date),result[i].plan);
+                        let bal = balanceLeft(startdate,formattedDate(result[0].start_date),result[0].plan);
                         // console.log(bal)
                         let postData = setPostData(user_name, changeType, bal, New_plan_id);
                         console.log(postData)
@@ -328,38 +332,38 @@ function subscriptionHandler(req, res, next) {
                             let cost = getCost(New_plan_id);
                             
                             if(paymentResponse.status == "SUCCESS"){
-                             let dbStatus = writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);//return value here to send back if it fails
-                             dbStatus.then(function(result){
+                             
+                                removeCustomerPlan(user_name, contact_number, result[0].plan)
+
+                             .then(writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
+                             .then(function(result){
                                  if(result == true){
                                      res.send("success");
                                  }
-                             }).catch(function(err){
-                                 res.send("failed, you already have a plan");
+                              }).catch(function(err){//writing to db failed
+                                 res.send("failed, you already have that plan");
                              })
-                            }else{
+                            ).catch(function(err) {
+                                console.log("deletion failed");
+                                res.send("Plan change failed");
+                            })
+                            
+                            }else{//payment failed
                                 res.send("Payment failed, retry")
                             }
+                        
                             
                         });
                     }
-
-                
-                 if(result[i].plan == "TRIAL" && New_plan_id=="TRIAL"){
+                 if(result[0].plan == "TRIAL" && New_plan_id=="TRIAL"){
                     trial = true;
                     console.log("Trial is exhausted for the user!");
                     res.send("You have exhauasted your trial period.");
                 }
                 break;
             }
-            }
-            
-            
-    
-            
-
-        
-
-});
+        }
+    });
 }
 
 
