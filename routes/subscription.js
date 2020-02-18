@@ -148,7 +148,7 @@ function getCurrentPlan(req, res, next) {
              ('0' + d.getDate()).slice(-2)
             ].join('-');
             
-            //push the date to the database for the user
+            
 
         res.send({
             'timeStamp': date,
@@ -157,7 +157,7 @@ function getCurrentPlan(req, res, next) {
         });
     }
 
-    //return plan id, number of days left or all subscription entries for that user that are valid
+    
     
 }
 
@@ -178,8 +178,7 @@ function paymentRequest(ob, cb) {
 }
 
 function writeToCustomers(uname, contact_number, plan, startdate, endDate, trial) {
-    console.log("Inside the write function :" + plan)
-    console.log("Inside the write function :" + trial)
+    
     return new Promise( function(resolve, reject){
         connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
             start_date, end_date, trials_left) values(?, ?, ?, \
@@ -191,7 +190,7 @@ function writeToCustomers(uname, contact_number, plan, startdate, endDate, trial
     })
 }
 
-
+// function not used 
 function removeCustomerPlan(uname, contact, plan){
     return new Promise(function(resolve, reject) {
         connection.query(`DELETE FROM CUSTOMERS WHERE user_name=? AND contact_number=? AND plan=?`,[uname,contact,plan], function(err, res, fields) {
@@ -229,7 +228,7 @@ getFromCustomers = function(uname, contact_number) {
     })
 }
 
-
+//unused
 function checkForDuplicates(uname, contact_number, plan, startdate) {
     let data = getFromCustomers(uname, contact_number)
                 .then(function(results){
@@ -274,17 +273,14 @@ function subscriptionHandler(req, res, next) {
         });
         return;
     }
-
-   
-
     
     //check for entries in the db for a partcular user only
     let data = getFromCustomers(user_name, contact_number)
-                .then(function(results){
-                    return results;
-                }).catch(function(err){
-                    return err;
-            })   
+            .then(function(results){
+                return results;
+            }).catch(function(err){
+                return err;
+        })   
 
 
         data.then(function(result) {
@@ -307,7 +303,7 @@ function subscriptionHandler(req, res, next) {
                     if(New_plan_id.toUpperCase() == "TRIAL"){
                         trials_left = 0;
                     }
-                    console.log("Trials left:" + trials_left)
+                    // console.log("Trials left:" + trials_left)
                      writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, trials_left)//return value here to send back if it fails
                      .then(function(result){
                         if(result == true){
@@ -322,11 +318,12 @@ function subscriptionHandler(req, res, next) {
                         res.send("Payment failed, please retry.")
                     }
                 });
-                console.log(postData);
+                console.log(postData);//verifying correctness of data being sent
             } else {
-                console.log(result);
-                for(let i = 0; i < result.length; i++){
-                    //check for duplicates
+                console.log(result);//check the user data from database
+                
+                    //checking if the user does not subscribe a plan at a date earlier than the 
+                    //start date of his current plan 
                     if (startdate < moment(result[0].start_date).format('YYYY-MM-DD')){
                         res.status(400).send({
                             status: 'FAILURE',
@@ -334,6 +331,7 @@ function subscriptionHandler(req, res, next) {
                         });
                         return;
                     }
+                //checking duplicates
                 if(result[0].contact_number == contact_number && moment(result[0].start_date).format('YYYY-MM-DD') == startdate &&  result[0].plan == New_plan_id){
                         duplicates = true;
                         console.log("duplicate plan!")
@@ -344,26 +342,22 @@ function subscriptionHandler(req, res, next) {
                         //calculate if the balance and make appropriate debit/credit payment.
                         console.log("upgrading/down from : " + result[0].plan);
                         let changeType = planChangeType(result[0].plan, New_plan_id);
-                        // console.log(changeType)
-                        // // console.log(result[i].end_date)
-                        // console.log(formattedDate(result[i].start_date))
-                        // console.log(formattedDate(result[i].end_date))
                         let bal = balanceLeft(startdate,formattedDate(result[0].start_date),result[0].plan);
                         // console.log(bal)
                         let postData = setPostData(user_name, changeType, bal, New_plan_id);
-                        console.log(postData)
+                        console.log(postData)//verifying correctness of data being sent
                         paymentRequest(postData, function(paymentApiResponse){
-                            console.log(paymentApiResponse);
+                            // console.log(paymentApiResponse);
                             let paymentResponse = JSON.parse(paymentApiResponse)
                             let valid = getValidity(New_plan_id);
                             let endDate = getEndDate(startdate, valid);
                             let cost = getCost(New_plan_id);
                             let trials_left = result[0].trials_left;
-                            console.log("Trials left" + trials_left)
+                            // console.log("Trials left" + trials_left)
                             
                             if(paymentResponse.status == "SUCCESS"){
                                 if(New_plan_id.toUpperCase() == "TRIAL" && trials_left == 0){
-                                    console.log("Trial exhausted, cant resuse.");
+                                    console.log("Trial exhausted, cant reuse.");
                                     res.send("Trial exhausted. Cant update.")
                                 }
                                 if(New_plan_id.toUpperCase() == "TRIAL" && trials_left == 1){
@@ -377,26 +371,10 @@ function subscriptionHandler(req, res, next) {
                             }).catch(function(err) {
                                 res.send("Failed, you already have that plan.")
                             })
-                            // removeCustomerPlan(user_name, contact_number, result[0].plan)
 
-                            //  .then(writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
-                            //  .then(function(result){
-                            //      if(result == true){
-                            //          res.send("success");
-                            //      }
-                            //   }).catch(function(err){//writing to db failed
-                            //      res.send("failed, you already have that plan");
-                            //  })
-                            // ).catch(function(err) {
-                            //     console.log("deletion failed");
-                            //     res.send("Plan change failed");
-                            // })
-                            
                             }else{//payment failed
                                 res.send("Payment failed, retry")
                             }
-                        
-                            
                         });
                     }
                  if(result[0].plan == "TRIAL" && New_plan_id=="TRIAL"){
@@ -404,8 +382,6 @@ function subscriptionHandler(req, res, next) {
                     console.log("Trial is exhausted for the user!");
                     res.send("You have exhauasted your trial period.");
                 }
-                break;
-            }
         }
     });
 }
