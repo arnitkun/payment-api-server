@@ -124,17 +124,21 @@ function subscriptionHandler(req, res, next) {
                 }).catch(function(err){
                     return err;
             })   
-    // data.then((res) => console.log(Object.keys(res[0])));
-    let duplicates = false;
-    let trial = false;
-    data.then(function(result) {
+    if(data){
+
+        let duplicates = false;
+        let trial = false;
+        data.then(function(result) {
             for(let i = 0; i < result.length; i++){
+                //check for duplicates
             if(result[i].contact_number == contact_number && moment(result[i].start_date).format('YYYY-MM-DD') == startdate && result[i].plan == New_plan_id){
                 duplicates = true;
             }
+            //trial check
             if(result[i].plan == "TRIAL"){
                 trial = true;
             }
+            
         }
 
         if(duplicates == true){
@@ -170,12 +174,12 @@ function subscriptionHandler(req, res, next) {
                         paymentObject = setPostData(user_name, status, diff, New_plan_id);
                         postData = JSON.parse(JSON.stringify(paymentObject));
                         postData = JSON.stringify(postData)
-                        // console.log(paymentObject)
+                        console.log(paymentObject)
 
                     }
                 }
                 
-                console.log(postData);
+                // console.log(postData);
                 
                 paymentRequest(postData, function(paymentApiResponse){
                     let paymentResponse = JSON.parse(paymentApiResponse)
@@ -193,8 +197,13 @@ function subscriptionHandler(req, res, next) {
                  console.log("Incorrect Date or plan. Please check.");
              }
         }
-    })
+    });
+       
+    } else {
+        
+        console.log("this is a new user")
 
+    }
 
 }
 
