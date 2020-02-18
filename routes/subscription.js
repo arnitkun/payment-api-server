@@ -177,11 +177,9 @@ function paymentRequest(ob, cb) {
 //   cb();
 }
 
-function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
-    let trial = 1;
-    if(plan == "TRIAL"){
-        trial = 0;
-    }
+function writeToCustomers(uname, contact_number, plan, startdate, endDate, trial) {
+    console.log("Inside the write function :" + plan)
+    console.log("Inside the write function :" + trial)
     return new Promise( function(resolve, reject){
         connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
             start_date, end_date, trials_left) values(?, ?, ?, \
@@ -206,10 +204,21 @@ function removeCustomerPlan(uname, contact, plan){
     
 }
 
+function updateCustomerPlan(contact, plan, startdate, endDate, trial) {
+    return new Promise(function(resolve, reject) {
+        connection.query(`UPDATE customers set plan = ?, start_date = ?, end_date = ?, trials_left = ?\
+            where contact_number = ?`, [plan, startdate, endDate, trial, contact], function(err, res, fields) {
+                if(err) reject(err.sqlMessage);
+                else {
+                    resolve(true);
+                }
+            })
+    })
+}
 
 getFromCustomers = function(uname, contact_number) {
     return new Promise( function(resolve, reject) {
-        connection.query('select user_name, contact_number, plan, start_date, end_date from customers where \
+        connection.query('select user_name, contact_number, plan, start_date, end_date, trials_left from customers where \
             user_name = ? AND contact_number = ?;',[uname, contact_number], function(err, rows) {
                 if(rows === undefined){
                     reject(new Error("Error: undefined rows."));
@@ -280,28 +289,33 @@ function subscriptionHandler(req, res, next) {
 
         data.then(function(result) {
 
-            
-
             if(result.length === 0){
                 // console.log(startdate);
                 let valid = getValidity(New_plan_id);
                 let endDate = getEndDate(startdate, valid);
-                
+                let trials_left = 1;
                 let postData = setPostData(user_name, "same", 0, New_plan_id);
                 let cost = postData.amount;
                 paymentRequest(postData, function(paymentApiResponse){
                     console.log(paymentApiResponse);
                     let paymentResponse = JSON.parse(paymentApiResponse)
                     
+                    console.log("number of trials left: " + trials_left)
+                    
                     if(paymentResponse.status == "SUCCESS"){
-                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
+                
+                    if(New_plan_id.toUpperCase() == "TRIAL"){
+                        trials_left = 0;
+                    }
+                    console.log("Trials left:" + trials_left)
+                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, trials_left)//return value here to send back if it fails
                      .then(function(result){
                         if(result == true){
                             res.send("success");
                             res.send(paymentApiResponse);
                         }
                      }).catch(function(err){//writing to db failed
-                        res.send("failed, please check you credentials");
+                        res.send("failed, please check you credentials" + err);
                     })
                      console.log("successful payment.");
                     } else{
@@ -344,23 +358,39 @@ function subscriptionHandler(req, res, next) {
                             let valid = getValidity(New_plan_id);
                             let endDate = getEndDate(startdate, valid);
                             let cost = getCost(New_plan_id);
+                            let trials_left = result[0].trials_left;
+                            console.log("Trials left" + trials_left)
                             
                             if(paymentResponse.status == "SUCCESS"){
-                             
-                            removeCustomerPlan(user_name, contact_number, result[0].plan)
-
-                             .then(writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
-                             .then(function(result){
-                                 if(result == true){
-                                     res.send("success");
-                                 }
-                              }).catch(function(err){//writing to db failed
-                                 res.send("failed, you already have that plan");
-                             })
-                            ).catch(function(err) {
-                                console.log("deletion failed");
-                                res.send("Plan change failed");
+                                if(New_plan_id.toUpperCase() == "TRIAL" && trials_left == 0){
+                                    console.log("Trial exhausted, cant resuse.");
+                                    res.send("Trial exhausted. Cant update.")
+                                }
+                                if(New_plan_id.toUpperCase() == "TRIAL" && trials_left == 1){
+                                    trials_left = 0;
+                                }
+                            updateCustomerPlan(contact_number, New_plan_id, startdate, endDate, trials_left)
+                            .then(function(result){
+                                if(result == true){
+                                    res.send("Successfully updated plan.")
+                                }
+                            }).catch(function(err) {
+                                res.send("Failed, you already have that plan.")
                             })
+                            // removeCustomerPlan(user_name, contact_number, result[0].plan)
+
+                            //  .then(writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
+                            //  .then(function(result){
+                            //      if(result == true){
+                            //          res.send("success");
+                            //      }
+                            //   }).catch(function(err){//writing to db failed
+                            //      res.send("failed, you already have that plan");
+                            //  })
+                            // ).catch(function(err) {
+                            //     console.log("deletion failed");
+                            //     res.send("Plan change failed");
+                            // })
                             
                             }else{//payment failed
                                 res.send("Payment failed, retry")
