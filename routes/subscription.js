@@ -139,27 +139,29 @@ function getCurrentPlan(req, res, next) {
         });
         return;
     }
-
-    if(user_name && typeof user_name === 'string'){
-        var d = new Date();
-            date = [
-            d.getFullYear(),
-            ('0' + (d.getMonth() + 1)).slice(-2),
-             ('0' + d.getDate()).slice(-2)
-            ].join('-');
-            
-            
-
-        res.send({
-            'timeStamp': date,
-            'Plan Name': plans.plan_ids[1],
-            'Plan validity': plans.validity[1]
-        });
+    
+    getPlan(user_name)
+    .then(function(result){
+        res.send(
+             {plan: result[0].plan}
+        );
+    }).catch(function(err){
+        res.send("User not found.");
+    })
+        
     }
 
+function getPlan(uname) {
+    return new Promise(function(resolve, reject) {
+        connection.query(`select plan from customers where user_name = ?`, [uname], function(err, res, fields){
+            if(err) reject(err.sqlMessage);
+            else
+            { resolve(res);}
+        })
+    })
+} 
     
-    
-}
+
 
 function paymentRequest(ob, cb) {
     request({
