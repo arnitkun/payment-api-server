@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 
 const {paymentHandler} = require('./routes/payment');
-const {subscriptionHandler} = require('./routes/subscription');
+const {subscriptionHandler, getCurrentPlan} = require('./routes/subscription');
 
 const app = express();
 
@@ -26,6 +26,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 app.use('/payment', paymentHandler);
 app.use('/subscription', subscriptionHandler);
+app.use('/currentPlan', getCurrentPlan);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
