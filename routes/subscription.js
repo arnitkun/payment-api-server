@@ -288,10 +288,20 @@ function subscriptionHandler(req, res, next) {
                 paymentRequest(postData, function(paymentApiResponse){
                     console.log(paymentApiResponse);
                     let paymentResponse = JSON.parse(paymentApiResponse)
-                    res.send(paymentApiResponse);
+                    
                     if(paymentResponse.status == "SUCCESS"){
-                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);//return value here to send back if it fails
+                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
+                     .then(function(result){
+                        if(result == true){
+                            res.send("success");
+                            res.send(paymentApiResponse);
+                        }
+                     }).catch(function(err){//writing to db failed
+                        res.send("failed, please check you credentials");
+                    })
                      console.log("successful payment.");
+                    } else{
+                        res.send("Payment failed, please retry.")
                     }
                 });
                 console.log(postData);
@@ -333,7 +343,7 @@ function subscriptionHandler(req, res, next) {
                             
                             if(paymentResponse.status == "SUCCESS"){
                              
-                                removeCustomerPlan(user_name, contact_number, result[0].plan)
+                            removeCustomerPlan(user_name, contact_number, result[0].plan)
 
                              .then(writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost)//return value here to send back if it fails
                              .then(function(result){
