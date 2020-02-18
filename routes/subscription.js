@@ -80,134 +80,11 @@ function setPostData(uname, status, bal, newplan) {
             ob.amount = totalCost;
             break;
     }
-    return ob;
+    return JSON.stringify(ob);
 }
 
-function getEndDate(start, number_of_days) {
-    return moment(start).add(number_of_days, "days").format('YYYY-MM-DD');
-}
 
-function subscriptionHandler(req, res, next) {
-    var {user_name, contact_number, New_plan_id, startdate} = req.body;
-    New_plan_id = New_plan_id.toUpperCase();
-    
-    if (!user_name || !New_plan_id || !contact_number || !startdate) {
-        res.status(400).send({
-          status: 'FAILURE',
-          error: 'Missing one of required params: user_name, New_plan_id, contact_number, startdate',
-        });
-        return;
-    }
-
-    if (typeof user_name !== 'string' || typeof New_plan_id !== 'string' || typeof contact_number !== 'string') {
-        res.status(400).send({
-          status: 'FAILURE',
-          error:
-            'Malformatted param type. user_name must be string, New_plan_id must be string, contact_number must be string',
-        });
-        return;
-    }
-
-    // if (startdate < moment().format('YYYY-MM-DD')){
-    //     res.status(400).send({
-    //         status: 'FAILURE',
-    //         error:'You can not choose a start date in the past. Why spend for no reason?'
-    //     });
-    //     return;
-    // }
-
-    
-    
-    let data = getFromCustomers(user_name, contact_number)
-                .then(function(results){
-                    return results;
-                }).catch(function(err){
-                    return err;
-            })   
-    if(data){
-
-        let duplicates = false;
-        let trial = false;
-        data.then(function(result) {
-            for(let i = 0; i < result.length; i++){
-                //check for duplicates
-            if(result[i].contact_number == contact_number && moment(result[i].start_date).format('YYYY-MM-DD') == startdate && result[i].plan == New_plan_id){
-                duplicates = true;
-            }
-            //trial check
-            if(result[i].plan == "TRIAL"){
-                trial = true;
-            }
-            
-        }
-
-        if(duplicates == true){
-            console.log("You already have that plan!");
-            res.send("You already have that plan!");
-        } else if(trial == true && New_plan_id == "TRIAL"){
-            res.send("You have exhausted your trial period.")  
-        } else {
-            if(moment(startdate, 'YYYY-MM-DD').isValid() && plans.plan_ids.includes(New_plan_id)) {
-
-                 let postData = {}; 
-                 let valid = getValidity(New_plan_id);
-                 let cost = getCost(New_plan_id);
-                
-                 let endDate = getEndDate(startdate, valid);
-                //  startdate = moment(startdate).format('YYYY-MM-DD');
-                startdate = formattedDate(startdate);
-                console.log(endDate);
-                
-                for(let i = 0; i < result.length; i++){
-                    let startDateDb = formattedDate(result[i].start_date);
-                    let currentPlan = result[i].plan;
-                    if( startDateDb < startdate && formattedDate(result[i].end_date) > startdate){
-                        //calculate amount by finding difference in days.
-                        
-                        console.log("plan overlap found!");
-                        console.log("StartDate on new plan :" + startdate);
-                        console.log("startDate on plan in db :" + startDateDb);
-                        let diff = balanceLeft(startdate, startDateDb, currentPlan);
-                        console.log("The diff is " + diff);
-                        //remove the older entry with the same plan here for the user
-                        let status = findDebitOrCredit(currentPlan, New_plan_id);
-                        paymentObject = setPostData(user_name, status, diff, New_plan_id);
-                        postData = JSON.parse(JSON.stringify(paymentObject));
-                        postData = JSON.stringify(postData)
-                        console.log(paymentObject)
-
-                    }
-                }
-                
-                // console.log(postData);
-                
-                paymentRequest(postData, function(paymentApiResponse){
-                    let paymentResponse = JSON.parse(paymentApiResponse)
-                    res.send(paymentResponse);
-                 //    console.log(startdate);
-                //   console.log(paymentResponse)
-                    if(paymentResponse.status == "SUCCESS"){
-                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);
-                     console.log("successful payment.")
-                    }
-                });
-                }
-                
-                else {
-                 console.log("Incorrect Date or plan. Please check.");
-             }
-        }
-    });
-       
-    } else {
-        
-        console.log("this is a new user")
-
-    }
-
-}
-
-function findDebitOrCredit(pid_past, pid_current){
+function planChangeType(pid_past, pid_current){
     let past = plans.plan_ids.indexOf(pid_past);
     let current = plans.plan_ids.indexOf(pid_current); 
 
@@ -225,10 +102,16 @@ function balanceLeft(start, end, plan) {
     let s = moment(start);
     let e = moment(end);
     let days = s.diff(e, 'days');
+    console.log("days used" + days)
     // return s.diff(e, 'days');
     let amount = getCost(plan);
     let validity = getValidity(plan);
-    return (amount - ( days * ( amount / validity)));
+    let cost = amount - ( days * ( amount / validity))
+    if(cost < 0){
+        return cost*-1;
+    }else{
+        return cost;
+    }
 
 }
 
@@ -295,14 +178,28 @@ function paymentRequest(ob, cb) {
 }
 
 function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
+    return new Promise( function(resolve, reject){
+        connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
+            start_date, end_date) values(?, ?, ?, \
+            ?, ?)`,[uname, contact_number, plan, startdate, endDate], function (err, res, fields) {
+        if(err) reject(err.sqlMessage);
+            else
+            { resolve(true);}
+        });
+    })
+}
 
-    connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
-                    start_date, end_date) values(?, ?, ?, \
-                    ?, ?)`,[uname, contact_number, plan, startdate, endDate], function (err, res, fields) {
-        if(err) console.log("Duplicate row found while writing to database." + err.sqlMessage);
-        else
-        {console.log("Written to db successfully!");}
-    });
+
+function removeCustomerPlan(...args){
+    return new Promise(function(resolve, reject) {
+        connection.query( query,[], function(err, res, fields) {
+            if(err) reject(err.sqlMessage);
+            else{
+                resolve(true);
+            }
+        })
+    })
+    
 }
 
 
@@ -337,6 +234,132 @@ function checkForDuplicates(uname, contact_number, plan, startdate) {
         return false;
 
     })
+}
+
+
+function getEndDate(start, number_of_days) {
+    return moment(start).add(number_of_days, "days").format('YYYY-MM-DD');
+}
+
+function subscriptionHandler(req, res, next) {
+    var {user_name, contact_number, New_plan_id, startdate} = req.body;
+    New_plan_id = New_plan_id.toUpperCase();
+    
+    if (!user_name || !New_plan_id || !contact_number || !startdate) {
+        res.status(400).send({
+          status: 'FAILURE',
+          error: 'Missing one of required params: user_name, New_plan_id, contact_number, startdate',
+        });
+        return;
+    }
+
+    if (typeof user_name !== 'string' || typeof New_plan_id !== 'string' || typeof contact_number !== 'string') {
+        res.status(400).send({
+          status: 'FAILURE',
+          error:
+            'Malformatted param type. user_name must be string, New_plan_id must be string, contact_number must be string',
+        });
+        return;
+    }
+
+    // if (startdate < moment().format('YYYY-MM-DD')){
+    //     res.status(400).send({
+    //         status: 'FAILURE',
+    //         error:'You can not choose a start date in the past. Why spend for no reason?'
+    //     });
+    //     return;
+    // }
+
+    
+    //check for entries in the db for a partcular user only
+    let data = getFromCustomers(user_name, contact_number)
+                .then(function(results){
+                    return results;
+                }).catch(function(err){
+                    return err;
+            })   
+
+
+        data.then(function(result) {
+            if(result.length === 0){
+                // console.log(startdate);
+                let valid = getValidity(New_plan_id);
+                let endDate = getEndDate(startdate, valid);
+                
+                let postData = setPostData(user_name, "same", 0, New_plan_id);
+                let cost = postData.amount;
+                paymentRequest(postData, function(paymentApiResponse){
+                    console.log(paymentApiResponse);
+                    let paymentResponse = JSON.parse(paymentApiResponse)
+                    res.send(paymentApiResponse);
+                    if(paymentResponse.status == "SUCCESS"){
+                     writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);//return value here to send back if it fails
+                     console.log("successful payment.");
+                    }
+                });
+                console.log(postData);
+            } else {
+                console.log(result);
+                for(let i = 0; i < result.length; i++){
+                    //check for duplicates
+                if(result[i].contact_number == contact_number && moment(result[i].start_date).format('YYYY-MM-DD') == startdate &&  result[i].plan == New_plan_id){
+                        duplicates = true;
+                        console.log("duplicate plan!")
+                        res.send("You already have that plan!");
+                } else
+                if(formattedDate(result[i].start_date) <= startdate && formattedDate(result[i].end_date) > startdate){
+                        //its either an upgrade or a downgrade; a partial overlap
+                        //calculate if the balance and make appropriate debit/credit payment.
+                        console.log("upgrading/down from : " + result[i].plan);
+                        let changeType = planChangeType(result[i].plan, New_plan_id);
+                        // console.log(changeType)
+                        // // console.log(result[i].end_date)
+                        // console.log(formattedDate(result[i].start_date))
+                        // console.log(formattedDate(result[i].end_date))
+                        let bal = balanceLeft(startdate,formattedDate(result[i].start_date),result[i].plan);
+                        // console.log(bal)
+                        let postData = setPostData(user_name, changeType, bal, New_plan_id);
+                        console.log(postData)
+                        paymentRequest(postData, function(paymentApiResponse){
+                            console.log(paymentApiResponse);
+                            let paymentResponse = JSON.parse(paymentApiResponse)
+                            let valid = getValidity(New_plan_id);
+                            let endDate = getEndDate(startdate, valid);
+                            let cost = getCost(New_plan_id);
+                            
+                            if(paymentResponse.status == "SUCCESS"){
+                             let dbStatus = writeToCustomers(user_name, contact_number, New_plan_id, startdate, endDate, cost);//return value here to send back if it fails
+                             dbStatus.then(function(result){
+                                 if(result == true){
+                                     res.send("success");
+                                 }
+                             }).catch(function(err){
+                                 res.send("failed, you already have a plan");
+                             })
+                            }else{
+                                res.send("Payment failed, retry")
+                            }
+                            
+                        });
+                    }
+
+                
+                 if(result[i].plan == "TRIAL" && New_plan_id=="TRIAL"){
+                    trial = true;
+                    console.log("Trial is exhausted for the user!");
+                    res.send("You have exhauasted your trial period.");
+                }
+                break;
+            }
+            }
+            
+            
+    
+            
+
+        
+
+});
 }
 
 
