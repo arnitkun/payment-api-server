@@ -178,10 +178,14 @@ function paymentRequest(ob, cb) {
 }
 
 function writeToCustomers(uname, contact_number, plan, startdate, endDate) {
+    let trial = 1;
+    if(plan == "TRIAL"){
+        trial = 0;
+    }
     return new Promise( function(resolve, reject){
         connection.query(`INSERT INTO customers(user_name, contact_number, plan, \
-            start_date, end_date) values(?, ?, ?, \
-            ?, ?)`,[uname, contact_number, plan, startdate, endDate], function (err, res, fields) {
+            start_date, end_date, trials_left) values(?, ?, ?, \
+            ?, ?, ?)`,[uname, contact_number, plan, startdate, endDate, trial], function (err, res, fields) {
         if(err) reject(err.sqlMessage);
             else
             { resolve(true);}
