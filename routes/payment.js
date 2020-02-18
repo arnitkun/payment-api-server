@@ -4,7 +4,7 @@ const uuidv4 = require('uuid/v4');
 function paymentHandler(req, res, next) {
   const {user_name, amount, payment_type} = req.body;
 
-  if (!user_name || !amount || !payment_type) {
+  if (!user_name || amount < 0 || !payment_type) {
     res.status(400).send({
       status: 'FAILIURE',
       error: 'Missing one of required params: user_name, amount, payment_type',
