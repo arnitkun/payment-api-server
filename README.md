@@ -49,6 +49,24 @@ In JSON format:
 - New plan ID
 - contact number (Additional input to maintain uniqueness)
 
+**End point**: <url>/subscription
+**Request type**: `POST`
+**Request body**:
+```json
+{
+  "user_name": <string>,
+  "New_plan_id":<string: Plan id>,
+  "contact_number":<string: contact number>,
+  "startdate":<string>
+}
+``` 
+**Response**:
+```Successfully updated plan.``` on success.
+```You already have that plan!``` on duplicate plans.
+```Trial exhausted, cant reuse.``` on reactivation of trial.
+```Payment failed, please retry.``` on payment failure.
+
+
 **outputs**:
 - Status: `SUCCESS` if the payment API request succeeded. `FAILURE` otherwise.
 
@@ -60,6 +78,21 @@ In JSON format:
 
 The input is in JSON format.
 
+**End point**: <url>/currentPlan
+**Request type**: `POST`
+**Request body**:
+```json
+{
+  "user_name": <string>
+}
+``` 
+**Response body**:
+```json
+{
+  "Plan": <strin: Plan id> // eg. "24242-3443-sdstg-3343",
+  "days left": <number: number of days left in the plan>
+}
+```
 **Outputs**:
 
 - Plan id that will be active for user at specified date (see table in Plans section below)
@@ -96,6 +129,7 @@ This service provides a single API endpoint described below:
 ### Running the Payment Server
 
 - A reasonably recent version of Node is a pre-requisite. Preferably: v9.x+
+- To set up the database, run ```node dbtest.js```. 
 - The API server can be started with:
 
 ```bash
