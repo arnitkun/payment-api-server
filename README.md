@@ -36,13 +36,10 @@ The plans provided by the subscription service are shown in the table below:
 3. express.js for building apis.  
 4. moment.js for handling dates.
 
-##### Shared Private Repo
-
-- You can upload your submission to a private repo on Gitlab, Github or Bitbucket 
-- Please make sure that you keep this repo private. Please do not share this challenge with anyone.
-- Please add the following handle as a collaborator in your repo: `balajeerc` (This handle is valid on all three sites: Gitlab, Github, Bitbucket)
-
 **Inputs**:
+
+In JSON format:
+
 - User name
 - Time stamp (in YYYY-MM-DD format)
 - New plan ID
@@ -55,17 +52,15 @@ The plans provided by the subscription service are shown in the table below:
 
 **Inputs**:
 - User name
-- Time stamp (in `YYYY-MM-DD` format)
+- Time stamp (in `YYYY-MM-DD` format) // Removed this because we only have one active plan per user.
 
-**Expected outputs**:
+The input is in JSON format.
+
+**Outputs**:
+
 - Plan id that will be active for user at specified date (see table in Plans section below)
-- Number of days left in plan
-- If timestamp is not specifed, list all subscription entries available in database along with start and valid till dates for the user.
-
-**Additional points of Note**:
-- The timestamp indicates the date at which the query is being made. 
-    - Basically, assume timestamp is the current date at the time of service invocation.
-- For eg. if  `TRIAL` subscription plan started on `2018-10-01` and we make a query to this service with a time stamp of `2018-10-05`, it should say that there are 2 days left.
+- Number of days left in plan, from the moment the query is made to the service. If the plan has not started,
+  the service returns the total validity.
 
 ## Payment API
 
@@ -91,7 +86,7 @@ This service provides a single API endpoint described below:
 
 **Additional points of Note**:
 
-- This service is implemented so that it intentionally errors out sometimes (approx 25% calls fail). This failiure needs to be handled appropriately in     the subscriptions service. To handle this, the subscription API rejects the subscription request stating "Payment Failed" and asks the user
+- This service is implemented so that it intentionally errors out sometimes (approx 25% calls fail). To handle this, the subscription API rejects the       subscription request stating "Payment Failed" and asks the user
   to reinitiate the payment.
 
 ### Running the Payment Server
