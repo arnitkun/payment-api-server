@@ -11,6 +11,10 @@ It provides endpoints for the following user subscription APIs:
 If the new subscription is an upgrade/downgrade, the API checks if there is any left over amount (due to cancelling the previous plan in case of upgrade)
  and call the payment API with the credentials of the user. Only after the payment succeeds does the database gets updated.
 
+The service maintains a single subscription plan for the user i.e. if you make a subscription in the future and re-subscribe to any other plan,
+you will be either charged or refunded on a pro-rata basis. This is done to reduce complexity because eventually a user can only have one 
+active plan at any point in time.
+
 ##  Plans 
 
 The plans provided by the subscription service are shown in the table below:
