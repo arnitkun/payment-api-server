@@ -142,21 +142,39 @@ function getCurrentPlan(req, res, next) {
     
     getPlan(user_name)
     .then(function(result){
+        console.log(result)
+        let today = moment().format("YYYY-MM-DD");
+        
+        let endDate = moment(result[0].end_date);
+        console.log(endDate);
+        
+        let daysLeft = endDate.diff(today, 'days');
+
+        if(daysLeft > getValidity(result[0].plan)){ //assuming that a plan is purchased in the future
+            daysLeft = getValidity(result[0].plan);
+        }
+
+        console.log(daysLeft)
         res.send(
-             {plan: result[0].plan}
+             {
+                 plan: result[0].plan,
+                 days_left: daysLeft 
+            }
         );
     }).catch(function(err){
-        res.send("User not found.");
+        res.send("User not found." + err);
     })
         
     }
 
 function getPlan(uname) {
     return new Promise(function(resolve, reject) {
-        connection.query(`select plan from customers where user_name = ?`, [uname], function(err, res, fields){
+        connection.query(`select plan, end_date from customers where user_name = ?`, [uname], function(err, res, fields){
             if(err) reject(err.sqlMessage);
             else
-            { resolve(res);}
+            {   
+                resolve(res);
+            }
         })
     })
 } 
