@@ -403,7 +403,7 @@ function subscriptionHandler(req, res, next) {
                  if(result[0].plan == "TRIAL" && New_plan_id=="TRIAL"){
                     trial = true;
                     console.log("Trial is exhausted for the user!");
-                    res.send("You have exhauasted your trial period.");
+                    res.send("You have exhausted your trial period.");
                 }
         }
     });
