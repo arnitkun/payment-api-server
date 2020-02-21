@@ -183,7 +183,7 @@ function getPlan(uname) {
 
 function paymentRequest(ob, cb) {
     request({
-        url: "127.0.0.1/payment",
+        url: "http://192.168.99.100:3000/payment",
         method: 'POST',
         headers: {
             'content-type': 'application/json'
