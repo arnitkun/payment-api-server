@@ -4,7 +4,7 @@ const moment = require('moment');
 const request = require('request');
 
 const CONFIG = {
-    host: 'localhost',
+    host: 'db',
     user     : 'root',
     password : 'root',
     database : 'cus'
@@ -183,7 +183,7 @@ function getPlan(uname) {
 
 function paymentRequest(ob, cb) {
     request({
-        url: "http://127.0.0.1:3000/payment",
+        url: "payment-server/payment",
         method: 'POST',
         headers: {
             'content-type': 'application/json'

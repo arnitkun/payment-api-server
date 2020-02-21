@@ -40,6 +40,17 @@ The plans provided by the subscription service are shown in the table below:
 3. express.js for building apis.  
 4. moment.js for handling dates.
 
+### Steps to run
+
+**For Local testing (without containerizing)**
+
+1. switch to develop branch 
+2. Execute the queries in /db/sql-scripts/
+3. cd /payment-server
+4. npm start
+5. cd /subscription-server
+6. npm start 
+
 **Inputs**:
 
 In JSON format:
