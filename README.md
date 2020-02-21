@@ -44,12 +44,22 @@ The plans provided by the subscription service are shown in the table below:
 
 **For Local testing (without containerizing)**
 
-1. switch to develop branch 
-2. Execute the queries in /db/sql-scripts/
-3. cd /payment-server
-4. npm start
-5. cd /subscription-server
-6. npm start 
+1. switch to ```develop``` branch 
+2. Execute the queries in ```/db/sql-scripts/```
+3. ```cd /payment-server```
+4. ```npm start```
+5. ```cd /subscription-server```
+6. ```npm start``` 
+
+**Deploying to docker:**
+
+1. from the root directory run ```docker-compose up```.
+**Note:** because the application is built on windows machine, the values for container ip's are hard-coded into the routes, they can be replaced by your own machine's
+containers' ip by running ```docker-machine ip```, which is only needed to be changed in one place; inside ```subscription.js```.
+
+The default value is usually 192.168.99.100
+
+###  Subscribe to a plan for a Specified User
 
 **Inputs**:
 
@@ -137,14 +147,5 @@ This service provides a single API endpoint described below:
 - This service is implemented so that it intentionally errors out sometimes (approx 25% calls fail). To handle this, the subscription API rejects the       subscription request stating "Payment Failed" and asks the user
   to reinitiate the payment.
 
-### Running the Payment Server
 
-- A reasonably recent version of Node is a pre-requisite. Preferably: v9.x+
-- To set up the database, run ```node dbtest.js```. 
-- The API server can be started with:
-
-```bash
-npm install
-npm run start
-```
 
