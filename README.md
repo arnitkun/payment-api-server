@@ -70,7 +70,7 @@ In JSON format:
 - New plan ID
 - contact number (Additional input to maintain uniqueness)
 
-**End point**: <url>/subscription
+**End point**: <url>:3001/subscription
 **Request type**: `POST`
 **Request body**:
 ```json
@@ -99,7 +99,7 @@ In JSON format:
 
 The input is in JSON format.
 
-**End point**: <url>/currentPlan
+**End point**: <url>:3001/currentPlan
 **Request type**: `POST`
 **Request body**:
 ```json
