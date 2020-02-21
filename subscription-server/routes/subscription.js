@@ -183,7 +183,7 @@ function getPlan(uname) {
 
 function paymentRequest(ob, cb) {
     request({
-        url: "http://127.0.0.1:3000/payment",
+        url: "http://127.0.0.1:3000/payment",//change to localhost for local development, on windows docker it needs to be ip of docker machine
         method: 'POST',
         headers: {
             'content-type': 'application/json'
@@ -403,7 +403,9 @@ function subscriptionHandler(req, res, next) {
                     res.send("You have exhauasted your trial period.");
                 }
         }
-    });
+    }).catch(function(err) {
+        console.log("Table is not initialsed, it is empty.")//wprkaround in case the table doesnt have
+    })
 }
 
 

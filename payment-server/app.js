@@ -44,4 +44,8 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-module.exports = app;
+// module.exports = app;
+app.listen(3000, () =>{
+  console.log("Listening on port: 3000");
+})
+
