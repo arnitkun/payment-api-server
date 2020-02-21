@@ -149,6 +149,9 @@ function getCurrentPlan(req, res, next) {
         console.log(endDate);
         
         let daysLeft = endDate.diff(today, 'days');
+        if(daysLeft < 0){
+            daysLeft = 0;
+        }
 
         if(daysLeft > getValidity(result[0].plan)){ //assuming that a plan is purchased in the future
             daysLeft = getValidity(result[0].plan);
@@ -162,7 +165,7 @@ function getCurrentPlan(req, res, next) {
             }
         );
     }).catch(function(err){
-        res.send("User not found." + err);
+        res.send("User not found. Please check username.");
     })
         
     }
