@@ -124,7 +124,7 @@ The input is in JSON format.
 
 This repo contains a NodeJS server that provides the following service that you will have to access from the user subscriptions service. 
 This service provides a single API endpoint described below:
-**End point**: <url>/payment
+**End point**: <url>:3000/payment
 **Request type**: `POST`
 **Request body**:
 ```json
